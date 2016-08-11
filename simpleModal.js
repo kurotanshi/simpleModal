@@ -120,6 +120,7 @@
               $modal.one('webkitAnimationEnd mozAnimationEnd MSAnimationEnd oanimationend animationend', function(){
                 $modal.css('display', 'none');
                 $overlay.css('display', 'none');
+                $modal.off('webkitAnimationEnd mozAnimationEnd MSAnimationEnd oanimationend animationend');
               });
             }
             else {
