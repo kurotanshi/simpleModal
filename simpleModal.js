@@ -1,30 +1,49 @@
 (function(){
 
-  (function($,sr){
-    var debounce = function (func, threshold, execAsap) {
-      var timeout;
-      return function debounced () {
-        var obj = this,
-            args = arguments;
-        function delayed () {
-          if (!execAsap){
-            func.apply(obj, args);
-          }
-          timeout = null;
-        };
-        if (timeout){
-          clearTimeout(timeout);
-        }
-        else if (execAsap){
-          func.apply(obj, args);
-        }
-        timeout = setTimeout(delayed, threshold || 100);
-      };
-    }
-    // smartModalResize
-    jQuery.fn[sr] = function(fn){ return fn ? this.on('resize', debounce(fn)) : this.trigger(sr); };
+  var loader = {
+    linkJS: function(scriptFile, callback) {
 
-  })(jQuery, 'smartModalResize');
+      var head = document.getElementsByTagName('head')[0] || null,
+          locker = false,
+          scriptTag = document.createElement('script');
+
+      if (!head) { return; }
+
+      scriptTag.type = 'text/javascript';
+      scriptTag.src = scriptFile;
+      scriptTag.onload = scriptTag.onreadystatechange = function() {
+        if (!locker && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
+          locker = true;
+          callback = callback || null;
+          if (typeof(callback) === 'function') { callback(); }
+        }
+      };
+      head.appendChild(scriptTag);
+      return;
+    },
+    linkCSS: function(cssFile, callback) {
+      var head = document.getElementsByTagName('head')[0] || null,
+          locker = false,
+          linkTag = document.createElement('link');
+
+      if (!head) { return; }
+
+      linkTag.rel = 'stylesheet';
+      linkTag.type = 'text/css';
+      linkTag.href = cssFile;
+      linkTag.onload = linkTag.onreadystatechange = function() {
+        if (!locker && (!this.readyState || this.readyState === 'loaded' || this.readyState === 'complete')) {
+          locker = true;
+          callback = callback || null;
+          if (typeof(callback) === 'function') { callback(); }
+        }
+      };
+      head.appendChild(linkTag);
+      return;
+    },
+  };
+
+  loader.linkCSS('//s1-t.hfcdn.com/min/b=fp/f2e_libraries/simpleModal&f=animate.min.css');
 
   (function ($) {
     "use strict";
@@ -41,7 +60,7 @@
           overlayClose: true,
           overlayParent: 'body',
           closeOnEscape: true,
-          closeButtonClass: '.close',
+          closeButtonClass: '.modal-close',
           transitionIn: '',
           transitionOut: '',
           onOpen: false,
@@ -57,6 +76,7 @@
               return parseInt(this, 10);
             })))));
           },
+          resize: false,
           updateZIndexOnOpen: true,
           hasVariableWidth: false
         };
@@ -84,13 +104,35 @@
 
           $modal.css({
             'display': 'none',
+            'background-color': 'white',
             'position' : 'fixed',
             'z-index': (o.updateZIndexOnOpen ? 0 : o.zIndex() + 1),
             'left' : parseInt(o.left, 10) > -1 ? o.left + 'px' : 50 + '%',
             'top' : parseInt(o.top, 10) > -1 ? o.top + 'px' : 50 + '%'
           });
 
-          $modal.on('openModal', function () {
+          if( $modal.children('.modal-close').length < 1 ){
+            $modal.append('<a class="modal-close" href="#">&times;</a>');
+          }
+
+          $modal.one('resize', function(){
+            console.log( 1 );
+            var ow = $(this).outerWidth(),
+                oh = $(this).outerHeight();
+
+            window.setTimeout(function(){
+              $modal.css({
+                'transition': 'wwidth .5s, height .5s, margin .5s, top .5s, left .5s',
+                'margin-left' : (parseInt(o.left, 10) > -1 ? 0 : - ($modal.outerWidth() / 2)) + 'px',
+                'margin-top'  : (parseInt(o.top, 10) > -1 ? 0 : - ($modal.outerHeight() / 2)) + 'px',
+                'left' : parseInt(o.left, 10) > -1 ? o.left + 'px' : 50 + '%',
+                'top' : parseInt(o.top, 10) > -1 ? o.top + 'px' : 50 + '%'
+              });
+            }.bind(this), 300);
+
+          });
+
+          $modal.one('openModal', function () {
             var overlayZ = o.updateZIndexOnOpen ? o.zIndex() : parseInt($overlay.css('z-index'), 10),
                 modalZ = overlayZ + 1;
 
@@ -100,8 +142,8 @@
 
             $modal.css({
               'display' : 'block',
-              'margin-left' : (parseInt(o.left, 10) > -1 ? 0 : -($modal.outerWidth() / 2)) + 'px',
-              'margin-top' : (parseInt(o.top, 10) > -1 ? 0 : -($modal.outerHeight() / 2)) + 'px',
+              'margin-left' : (parseInt(o.left, 10) > -1 ? 0 : - ($modal.outerWidth() / 2)) + 'px',
+              'margin-top' : (parseInt(o.top, 10) > -1 ? 0 : - ($modal.outerHeight() / 2)) + 'px',
               'z-index': modalZ
             });
 
@@ -113,8 +155,9 @@
             }
           });
 
-          $modal.on('closeModal', function () {
+          $modal.one('closeModal', function () {
             if(o.transitionIn !== '' && o.transitionOut !== ''){
+
               $modal.removeClass(o.transitionIn).addClass(o.transitionOut);
 
               $modal.one('webkitAnimationEnd mozAnimationEnd MSAnimationEnd oanimationend animationend', function(){
@@ -135,32 +178,21 @@
           });
 
           // Close on overlay click
-          $overlay.click(function () {
-            if (o.overlayClose) {
-              $modal.trigger('closeModal');
-            }
+          $overlay.on('click', function () {
+            if (o.overlayClose) { $modal.trigger('closeModal'); }
           });
 
-          $(document).keydown(function (e) {
+          $(document).on('keydown', function (e) {
             // ESCAPE key pressed
             if (o.closeOnEscape && e.keyCode === 27) {
               $modal.trigger('closeModal');
             }
           });
 
-          $(window).smartModalResize(function(){
-            if (o.hasVariableWidth) {
-              $modal.css({
-                'margin-left' : (parseInt(o.left, 10) > -1 ? 0 : - ($modal.outerWidth() / 2)) + 'px',
-                'margin-top' : (parseInt(o.top, 10) > -1 ? 0 : - ($modal.outerHeight() / 2)) + 'px'
-              });
-            }
-          });
-
           // Close when button pressed
           $modal.on('click', o.closeButtonClass, function (e) {
-            $modal.trigger('closeModal');
             e.preventDefault();
+            $modal.trigger('closeModal');
           });
 
           // Automatically open modal if option set
@@ -175,6 +207,7 @@
 
 
     $.fn.simpleModal = function (method) {
+
       // Method calling logic
       if (methods[method]) {
         return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
@@ -189,5 +222,99 @@
 
   }(jQuery));
 
+
+  $(function() {
+
+     $('[modal-open]').each(function(i, v){
+        var target = $(v).data('target');
+
+        if( target !== 'iframe' ) {
+          $(target).css({
+            'display': 'none',
+            'position': 'relative',
+            'padding': '1em',
+            'box-shadow': '1px 1px 3px rgba(0,0,0, 0.35)',
+            'background-color': 'white'
+          });
+        }
+     });
+
+    // button event
+    $('[modal-open]').on('click', function(e) {
+      e.preventDefault();
+      var that = this;
+      var opt = {
+        overlay: 0.2,
+        transitionIn: 'animated bounceInDown',
+        transitionOut: 'animated bounceOutDown'
+      };
+
+      var href = $(that).attr('href'),
+          target = $(that).data('target');
+
+      var width = $(that).data('width'),
+          height = $(that).data('height');
+
+        width =  (width !== undefined) ? width + 'px' : '680px';
+        height = (height !== undefined) ? height + 'px' : 'auto';
+
+      if( target === 'iframe' ) {
+
+        if( $('#iframe-modal').length === 0 ){
+
+          tmpModal = $('<div>', {
+            id: 'iframe-modal',
+            css: { width: width, height: height }
+          });
+
+          tmpModal.appendTo('body');
+        }
+        else{
+          tmpModal = $('#iframe-modal');
+          tmpModal.css({ width: width, height: height });
+        }
+
+        tmpModal.html('<iframe style="border: none; width: 100%; height: 100%;" src="'+ href +'" />');
+
+        tmpModal.append('<a class="modal-close" href="#">&times;</a>');
+
+        opt.onOpen = function(){
+          if( $(that).data('width') === undefined || $(that).data('height') === undefined ){
+
+            tmpModal.css({'transition': 'height 1s, width 1s, margin .3s, top .7s, left .7s'});
+
+            window.setTimeout( function(){
+              var h = tmpModal.children('iframe').contents().height(),
+                  w = tmpModal.children('iframe').contents().width();
+
+              var outerH = $(window).height(),
+                  outerW = $(window).width();
+
+              tmpModal.css({
+                'height': h + 'px',
+                'width': w + 'px',
+                'margin-top': 0,
+                'margin-left': 0,
+                'top': ((outerH - h)/2) + 'px',
+                'left': ((outerW - w)/2) + 'px'
+              });
+            }, 500);
+
+          }
+        };
+
+        opt.onClose = function(){
+          window.setTimeout(function(){ tmpModal.empty(); }, 500);
+        };
+
+        tmpModal.simpleModal(opt).trigger('openModal');
+      }
+      else {
+        $(target).simpleModal(opt).trigger('openModal');
+      }
+
+    });
+
+  });
 
 })();
